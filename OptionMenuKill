@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# Kill all instanes of python3.
+
+sudo kill -KILL `pidof python3`
+
