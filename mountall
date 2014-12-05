@@ -1,0 +1,57 @@
+#!/bin/bash
+
+sudo fdisk -l | awk '{print $1}' | grep "/dev/s" | while read -r drive; do
+	if ! [[ `sudo mount | grep $drive` == "" ]]; then
+		# echo $drive is already mounted. Mount aborted.
+		quit=true
+		# I had to put 'quit=true' because I would get an error. A random piece of code fixed this.
+		# I might add some useful code here later on though. I guess I could have removed "if !" and
+		# replaced it with "if [[..." but it's there now, so yeah.
+	else
+		fs=`sudo fdisk -l | grep "$drive" | awk '{print $7}'`
+		drivelast=`echo ${drive: -4}`
+		label=`sudo lsblk -o label -n $drive`
+		if [[ $label == "" ]]; then
+			echo "No label found for "$drivelast"."
+			mountpoint=/media/$drivelast
+		else
+			echo Label for $drivelast is: $label
+			mountpoint=/media/$label
+		fi
+		echo Drive: $drive, FS: $fs, End: $drivelast
+		if ! [ -d "$mountpoint" ]; then
+			echo Creating directory "$mountpoint"
+			sudo mkdir "$mountpoint"
+			sudo chmod 777 "$mountpoint"
+		fi
+		if [[ $fs == "HPFS/NTFS/exFAT" ]]; then
+			echo Mounting $drive as $mountpoint with type ntfs-3g
+			sudo mount -o rw,permissions $drive "$mountpoint" -t ntfs-3g
+		else
+			if [[ $fs == "W95" ]]; then
+				echo Mounting $drive as $mountpoint, with type vfat
+				sudo mount -t vfat -ouser,umask=000 $drive "$mountpoint"
+			else
+				echo Mounting $drive as $mountpoint, with type: Auto
+				sudo mount -o rw,permissions $drive "$mountpoint"
+			fi
+		fi
+	fi
+done
+ls -1 /media | while read -r directory; do
+	directory=/media/$directory
+	mountstat=`sudo mount | grep "$directory"`
+	if [[ "$mountstat" == "" ]]; then
+		echo Unmounting $directory ...
+		sudo umount "$directory"
+		sudo rmdir "$directory"
+	else
+		mountstat=`sudo mount | grep "$directory" | awk '{print $1}'`
+		mountstat=`sudo fdisk -l | grep "$mountstat"`
+		if [[ "$mountstat" == "" ]]; then
+			echo Unmounting $directory ...
+			sudo umount "$directory"
+			sudo rmdir "$directory"
+		fi
+	fi
+done
