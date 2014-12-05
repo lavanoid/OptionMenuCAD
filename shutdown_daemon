@@ -1,0 +1,42 @@
+#!/bin/bash
+
+cd=${0%[\\/]*}
+
+# Shutdown daemon by Jack Davies (lavanoid). This program is designed to simply shutdown or reboot
+# the system while stopping specific services in a specific order. It also checks for drives
+# and automatically mounts them, while also checking if OptionMenu.py is still running.
+
+# Un-mount implementation will be finished in a later version.
+
+# Check for files stored in RAM - reduces disk access.
+sudo mkdir /run/shutdown_daemon
+sudo chmod 0777 -R /run/shutdown_daemon
+while true; do
+	if [ -f "/run/shutdown_daemon/rebootd" ]; then
+		sudo service dnsmasq stop &
+		sudo service hostapd stop &
+		sudo reboot
+		exit
+	fi
+	if [ -f "/run/shutdown_daemon/shutdownd" ]; then
+		sudo service dnsmasq stop &
+		sudo service hostapd stop &
+		sudo halt
+		exit
+	fi
+	if [[ -f "/run/shutdown_daemon/umountall" ]]; then
+		sudo fdisk -l | awk '{print $1}' | grep "/dev/s" | while read -r drive; do
+			if ! [[ `sudo mount | grep $drive` == "" ]]; then
+				sudo umount "/dev/$drive"
+				#while `sudo fdisk -l | 
+			fi
+		done
+	fi
+	"/home/Lavanoid/bin/mountall" | logger
+	if [[ `ps aux | grep "OptionMenu" | grep "python3"` == "" ]]; then
+		echo Re-spawning OptionMenu.py
+		echo Re-spawning OptionMenu.py | logger
+		sudo "$cd/OptionMenu.py" &
+	fi
+	sleep 2
+done
