@@ -11,6 +11,8 @@ cd = os.path.dirname(os.path.realpath(sys.argv[0]))
 dronekiller = "NotRunning"
 hostapd_interface="wlan0"
 hostapd_ipaddress="192.168.3.1"
+musicdir = "/home/Lavanoid/Music/"
+pifmfreq = "96.4"
 while True:
 	question = LCDQuestion(question="Option:", answers=["Services","Utilities","Shutdown","Reboot","Exit","Lock"])
 	result = question.ask()
@@ -66,7 +68,7 @@ while True:
 		# Services end.
 	elif result == 1:
 		# Utilities
-		question = LCDQuestion(question="Utility:", answers=["Drone Killer","Pi-RC","Back"])
+		question = LCDQuestion(question="Utility:", answers=["Drone Killer","Pi-RC","PiFM","Back"])
 		result = question.ask()
 		if result == 0:
 			# Drone Killer
@@ -84,6 +86,7 @@ while True:
 					else:
 						cad.lcd.clear()
 						# Kills a Parrot.AR Drone every 30 seconds.
+						call(["chmod", "777", cd + "/DroneKiller"])
 						dronekiller = subprocess.Popen([cd + "/DroneKiller", "wlan0", "30", "192.168.1.1", "192.168.1.4"], stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
 						cad.lcd.write("Killing drones...")
 						#time.sleep(2)
@@ -115,6 +118,15 @@ while True:
 				call([cd + "/pi-rc/pifacecad_interactive_control.py", configurationfile])
 				# Once 'pifacecad_interactive_control.py' has died, the pi_pcm server will also be killed.
 				os.killpg(pirc_pcm.pid, signal.SIGTERM)
+		elif result == 2:
+			question = LCDQuestion(question="PiFM: " + pifmfreq + "FM", answers=["Start","Stop","Next","Previous","Cancel"])
+			result = question.ask()
+			if result == 0:
+				pifmplay = subprocess.Popen(["/bin/pifmplay", musicdir, pifmfreq], stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
+			elif result == 1:
+				call(["sudo pifmplay", "stop"])
+			elif result == 2:
+				call(["sudo pifmplay", "next"])
 		# Utilities end.
 	elif result == 4:
 		cad.lcd.clear()
@@ -151,7 +163,6 @@ while True:
 		# Shutdown end.
 	elif result == 3:
 		# Reboot
-		
 		question = LCDQuestion(question="Reboot?", answers=["Yes","No"])
 		result = question.ask()
 		if result == 0:
